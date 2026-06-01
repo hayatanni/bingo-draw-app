@@ -30,6 +30,12 @@ start .\index.html
 
 ## GitHub Pagesで公開する方法
 
+公開 URL:
+
+```text
+https://hayatanni.github.io/bingo-draw-app/
+```
+
 1. このフォルダーを GitHub リポジトリに push します。
 2. GitHub のリポジトリ画面で `Settings` を開きます。
 3. `Pages` を開きます。
