@@ -1,0 +1,1214 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <title>BINGO DRAW</title>
+  <style>
+    :root {
+      --bg: #07080b;
+      --bg-2: #101417;
+      --panel: rgba(13, 18, 21, 0.88);
+      --panel-strong: rgba(18, 25, 29, 0.93);
+      --line: rgba(228, 226, 210, 0.23);
+      --line-strong: rgba(21, 185, 116, 0.72);
+      --text: #f6fbff;
+      --muted: #a6a99d;
+      --dim: rgba(246, 251, 255, 0.28);
+      --cyan: #15b974;
+      --cyan-2: #65f0af;
+      --gold: #ffd464;
+      --gold-2: #ffe8a1;
+      --red: #e84b4b;
+      --cream: #f4ead0;
+      --danger: #e84b4b;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.44);
+      --radius: 8px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      font-family: "Arial", "Helvetica Neue", "Yu Gothic", "Meiryo", sans-serif;
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background:
+        radial-gradient(circle at 15% 8%, rgba(232, 75, 75, 0.15), transparent 22rem),
+        radial-gradient(circle at 86% 2%, rgba(21, 185, 116, 0.18), transparent 26rem),
+        radial-gradient(circle at 50% -8%, rgba(255, 212, 100, 0.15), transparent 34rem),
+        linear-gradient(145deg, #030405 0%, var(--bg) 48%, #10110c 100%);
+      color: var(--text);
+    }
+
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .app {
+      width: min(100vw, 1800px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: clamp(12px, 1.4vw, 24px);
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: clamp(10px, 1.2vw, 18px);
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .title {
+      margin: 0;
+      text-align: center;
+      font-size: clamp(2.4rem, 5vw, 5.8rem);
+      line-height: 0.95;
+      letter-spacing: 0.08em;
+      color: var(--cream);
+      text-shadow: 0 0 14px rgba(255, 255, 255, 0.30), 0 0 24px rgba(21, 185, 116, 0.34), 0 0 46px rgba(232, 75, 75, 0.18);
+      white-space: nowrap;
+    }
+
+    .live,
+    .clock {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(4, 10, 20, 0.66);
+      color: var(--text);
+      font-size: clamp(0.9rem, 1.4vw, 1.35rem);
+      font-weight: 800;
+      padding: 0.55rem 0.8rem;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .live {
+      justify-self: start;
+      gap: 0.5rem;
+      color: #ffeff2;
+    }
+
+    .live-dot {
+      width: 0.82em;
+      height: 0.82em;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 18px rgba(232, 75, 75, 0.95);
+    }
+
+    .clock {
+      justify-self: end;
+      min-width: 10rem;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+      gap: clamp(10px, 1.2vw, 18px);
+    }
+
+    .current-panel,
+    .stats-panel,
+    .board-column,
+    .history-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, var(--panel-strong), rgba(5, 12, 24, 0.88));
+      box-shadow: var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+    }
+
+    .current-panel {
+      min-height: clamp(220px, 26vw, 420px);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(150px, 0.34fr);
+      align-items: stretch;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .current-panel::before {
+      content: "";
+      position: absolute;
+      width: min(58vw, 620px);
+      aspect-ratio: 1;
+      left: 50%;
+      top: 50%;
+      transform: translate(-58%, -50%);
+      border-radius: 50%;
+      opacity: 0.22;
+      pointer-events: none;
+      background:
+        radial-gradient(circle, rgba(246, 251, 255, 0.42) 0 5%, transparent 5.5% 8%),
+        conic-gradient(from -9deg, rgba(232, 75, 75, 0.85) 0 18deg, rgba(21, 185, 116, 0.85) 18deg 36deg, rgba(18, 22, 24, 0.95) 36deg 54deg, rgba(244, 234, 208, 0.76) 54deg 72deg, rgba(232, 75, 75, 0.85) 72deg 90deg, rgba(21, 185, 116, 0.85) 90deg 108deg, rgba(18, 22, 24, 0.95) 108deg 126deg, rgba(244, 234, 208, 0.76) 126deg 144deg, rgba(232, 75, 75, 0.85) 144deg 162deg, rgba(21, 185, 116, 0.85) 162deg 180deg, rgba(18, 22, 24, 0.95) 180deg 198deg, rgba(244, 234, 208, 0.76) 198deg 216deg, rgba(232, 75, 75, 0.85) 216deg 234deg, rgba(21, 185, 116, 0.85) 234deg 252deg, rgba(18, 22, 24, 0.95) 252deg 270deg, rgba(244, 234, 208, 0.76) 270deg 288deg, rgba(232, 75, 75, 0.85) 288deg 306deg, rgba(21, 185, 116, 0.85) 306deg 324deg, rgba(18, 22, 24, 0.95) 324deg 342deg, rgba(244, 234, 208, 0.76) 342deg 360deg);
+      box-shadow: inset 0 0 0 10px rgba(244, 234, 208, 0.32), inset 0 0 0 28px rgba(232, 75, 75, 0.28), inset 0 0 0 48px rgba(21, 185, 116, 0.22), 0 0 80px rgba(21, 185, 116, 0.16);
+      filter: blur(0.2px) saturate(1.05);
+    }
+
+    .current-display {
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+      padding: clamp(18px, 2.2vw, 34px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      text-align: center;
+    }
+
+    .label {
+      color: var(--text);
+      font-size: clamp(1rem, 1.6vw, 1.55rem);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+
+    .number {
+      width: 100%;
+      min-height: 0.9em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(5.6rem, 17vw, 18rem);
+      font-weight: 1000;
+      line-height: 0.82;
+      letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      color: var(--text);
+      text-shadow:
+        0 0 8px rgba(255, 255, 255, 0.55),
+        0 0 32px rgba(21, 185, 116, 0.62),
+        0 0 58px rgba(232, 75, 75, 0.24),
+        0 18px 38px rgba(0, 0, 0, 0.55);
+      overflow-wrap: anywhere;
+      transform-origin: center;
+      contain: layout paint;
+    }
+
+    .number.empty {
+      color: rgba(246, 251, 255, 0.55);
+      letter-spacing: 0.02em;
+    }
+
+    .number.rolling {
+      color: var(--cyan-2);
+      text-shadow: 0 0 10px rgba(120, 238, 255, 0.75), 0 0 38px rgba(41, 215, 255, 0.7);
+    }
+
+    .number.settled {
+      animation: settle 700ms ease-out;
+    }
+
+    .status-box {
+      border-left: 1px solid var(--line);
+      position: relative;
+      z-index: 1;
+      padding: clamp(18px, 2vw, 30px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      gap: 1rem;
+      background: rgba(0, 0, 0, 0.14);
+    }
+
+    .status-text {
+      color: var(--gold);
+      font-size: clamp(2.7rem, 6.2vw, 7.8rem);
+      font-weight: 1000;
+      line-height: 1;
+      text-shadow: 0 0 14px rgba(255, 224, 122, 0.72), 0 0 42px rgba(255, 174, 0, 0.28);
+    }
+
+    .status-text.rolling {
+      color: var(--cyan-2);
+      text-shadow: 0 0 16px rgba(41, 215, 255, 0.78);
+    }
+
+    .stats-panel {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      overflow: hidden;
+    }
+
+    .stat {
+      display: flex;
+      min-height: 150px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(16px, 2vw, 28px);
+      text-align: center;
+      border-left: 1px solid var(--line);
+    }
+
+    .stat:first-child {
+      border-left: 0;
+    }
+
+    .stat-label {
+      width: min(12rem, 100%);
+      border-bottom: 2px solid var(--line-strong);
+      color: var(--text);
+      font-size: clamp(1rem, 1.5vw, 1.5rem);
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .stat-value {
+      font-size: clamp(4rem, 8vw, 9rem);
+      font-weight: 1000;
+      line-height: 0.95;
+      color: var(--cyan-2);
+      text-shadow: 0 0 18px rgba(120, 238, 255, 0.45);
+    }
+
+    .stat:nth-child(2) .stat-value {
+      color: var(--gold);
+      text-shadow: 0 0 18px rgba(255, 224, 122, 0.42);
+    }
+
+    .stat-denom {
+      margin-top: 0.4rem;
+      color: var(--text);
+      font-size: clamp(1.3rem, 2.2vw, 2.6rem);
+      font-weight: 900;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr 1fr 1.05fr;
+      gap: clamp(10px, 1.2vw, 16px);
+    }
+
+    .control {
+      min-height: clamp(58px, 6.2vw, 92px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, #10243d, #0b1729);
+      color: var(--text);
+      cursor: pointer;
+      font-size: clamp(1.05rem, 1.9vw, 2rem);
+      font-weight: 1000;
+      letter-spacing: 0.03em;
+      padding: 0.8rem 1rem;
+      box-shadow: 0 13px 28px rgba(0, 0, 0, 0.34), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+      transition: transform 160ms ease, border-color 160ms ease, filter 160ms ease, opacity 160ms ease;
+      touch-action: manipulation;
+    }
+
+    .control:hover:not(:disabled),
+    .control:focus-visible {
+      border-color: var(--cyan);
+      filter: brightness(1.15);
+      outline: none;
+    }
+
+    .control:active:not(:disabled) {
+      transform: translateY(1px) scale(0.995);
+    }
+
+    .control:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+      filter: grayscale(0.3);
+    }
+
+    .primary {
+      background: linear-gradient(180deg, #1cc879, #0a7e4e);
+      border-color: rgba(101, 240, 175, 0.92);
+      color: #f8feff;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.22);
+    }
+
+    .danger {
+      background: linear-gradient(180deg, #5c1717, #340b0b);
+      border-color: rgba(255, 77, 103, 0.86);
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: clamp(8px, 1vw, 14px);
+      min-height: 0;
+    }
+
+    .board-column {
+      overflow: hidden;
+    }
+
+    .column-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: clamp(50px, 5vw, 76px);
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(90deg, rgba(232, 75, 75, 0.28), transparent 26%, transparent 74%, rgba(21, 185, 116, 0.26)),
+        linear-gradient(180deg, rgba(32, 36, 29, 0.96), rgba(10, 14, 14, 0.93));
+      font-size: clamp(2rem, 4vw, 4.5rem);
+      font-weight: 1000;
+      color: var(--cream);
+      text-shadow: 0 0 18px rgba(255, 212, 100, 0.24);
+    }
+
+    .number-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cell {
+      aspect-ratio: 1.15 / 1;
+      min-height: 42px;
+      border-right: 1px solid rgba(171, 205, 255, 0.20);
+      border-bottom: 1px solid rgba(171, 205, 255, 0.20);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--dim);
+      font-size: clamp(1.45rem, 2.6vw, 3.7rem);
+      font-weight: 900;
+      line-height: 1;
+      background: rgba(0, 0, 0, 0.12);
+      transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+
+    .cell:nth-child(3n) {
+      border-right: 0;
+    }
+
+    .cell:nth-last-child(-n+3) {
+      border-bottom: 0;
+    }
+
+    .cell.drawn {
+      color: var(--cyan-2);
+      background: rgba(21, 185, 116, 0.15);
+      box-shadow: inset 0 0 0 2px rgba(101, 240, 175, 0.68), inset 0 0 18px rgba(21, 185, 116, 0.24);
+      text-shadow: 0 0 10px rgba(101, 240, 175, 0.72);
+    }
+
+    .cell.current {
+      color: var(--gold-2);
+      background: rgba(255, 224, 122, 0.18);
+      box-shadow: inset 0 0 0 2px rgba(255, 224, 122, 0.9), 0 0 22px rgba(255, 224, 122, 0.45);
+      text-shadow: 0 0 12px rgba(255, 224, 122, 0.85);
+      transform: scale(1.03);
+      z-index: 1;
+    }
+
+    .history-panel {
+      padding: clamp(12px, 1.4vw, 20px);
+      min-height: clamp(106px, 10vw, 160px);
+    }
+
+    .history-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .history-title {
+      font-size: clamp(1.1rem, 1.7vw, 1.8rem);
+      font-weight: 1000;
+      letter-spacing: 0.06em;
+    }
+
+    .storage-note {
+      color: var(--muted);
+      font-size: clamp(0.78rem, 1.1vw, 1rem);
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .history-list {
+      display: flex;
+      align-items: center;
+      gap: clamp(8px, 1vw, 14px);
+      overflow-x: auto;
+      padding: 0.2rem 0.1rem 0.45rem;
+      scrollbar-color: rgba(41, 215, 255, 0.6) rgba(255, 255, 255, 0.08);
+    }
+
+    .history-item {
+      flex: 0 0 auto;
+      min-width: clamp(70px, 7vw, 112px);
+      min-height: clamp(58px, 6vw, 92px);
+      border: 1px solid rgba(41, 215, 255, 0.72);
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.45rem 0.8rem;
+      background: radial-gradient(circle at 50% 18%, rgba(41, 215, 255, 0.22), rgba(4, 12, 24, 0.95) 70%);
+      color: var(--cyan-2);
+      font-size: clamp(1.15rem, 1.7vw, 2rem);
+      font-weight: 1000;
+      text-shadow: 0 0 12px rgba(41, 215, 255, 0.62);
+    }
+
+    .history-item.latest {
+      border-color: rgba(255, 224, 122, 0.95);
+      color: var(--gold-2);
+      background: radial-gradient(circle at 50% 18%, rgba(255, 224, 122, 0.24), rgba(36, 25, 2, 0.95) 72%);
+      text-shadow: 0 0 12px rgba(255, 224, 122, 0.72);
+    }
+
+    .empty-history {
+      color: var(--muted);
+      font-size: clamp(1rem, 1.4vw, 1.25rem);
+      font-weight: 700;
+      padding: 1rem 0;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @keyframes settle {
+      0% {
+        transform: scale(0.9);
+        filter: brightness(1.4);
+      }
+      45% {
+        transform: scale(1.08);
+        filter: brightness(1.85);
+      }
+      100% {
+        transform: scale(1);
+        filter: brightness(1);
+      }
+    }
+
+    @media (min-width: 901px) {
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      .app {
+        height: 100vh;
+        min-height: 0;
+        padding: clamp(8px, 0.9vw, 14px);
+        grid-template-rows: auto minmax(150px, 1fr) auto minmax(0, 1.28fr) auto;
+        gap: clamp(6px, 0.72vw, 11px);
+        overflow: hidden;
+      }
+
+      .topbar {
+        gap: 10px;
+      }
+
+      .title {
+        font-size: clamp(2rem, 4.05vw, 4.7rem);
+      }
+
+      .live,
+      .clock {
+        min-height: 34px;
+        padding: 0.35rem 0.65rem;
+        font-size: clamp(0.82rem, 1.05vw, 1.05rem);
+      }
+
+      .hero {
+        min-height: 0;
+        gap: clamp(6px, 0.72vw, 11px);
+      }
+
+      .current-panel {
+        min-height: 0;
+      }
+
+      .current-panel::before {
+        width: min(46vw, 500px);
+      }
+
+      .current-display {
+        padding: clamp(10px, 1.35vw, 22px);
+        overflow: hidden;
+      }
+
+      .label {
+        font-size: clamp(0.88rem, 1.15vw, 1.18rem);
+      }
+
+      .number {
+        font-size: clamp(5rem, 13.2vw, 13.4rem);
+        white-space: nowrap;
+      }
+
+      .status-box {
+        padding: clamp(10px, 1.2vw, 18px);
+        gap: 0.65rem;
+      }
+
+      .status-text {
+        font-size: clamp(2.2rem, 4.8vw, 5.2rem);
+      }
+
+      .stats-panel {
+        min-height: 0;
+      }
+
+      .stat {
+        min-height: 0;
+        padding: clamp(10px, 1.4vw, 18px);
+      }
+
+      .stat-label {
+        font-size: clamp(0.88rem, 1.1vw, 1.12rem);
+        padding-bottom: 0.35rem;
+        margin-bottom: 0.45rem;
+      }
+
+      .stat-value {
+        font-size: clamp(3.2rem, 6vw, 6.4rem);
+      }
+
+      .stat-denom {
+        margin-top: 0.2rem;
+        font-size: clamp(1rem, 1.55vw, 1.8rem);
+      }
+
+      .controls {
+        gap: clamp(6px, 0.72vw, 11px);
+      }
+
+      .control {
+        min-height: clamp(48px, 4.9vw, 66px);
+        padding: 0.55rem 0.8rem;
+        font-size: clamp(0.98rem, 1.45vw, 1.55rem);
+      }
+
+      .board {
+        min-height: 0;
+        gap: clamp(5px, 0.62vw, 9px);
+      }
+
+      .board-column {
+        min-height: 0;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+      }
+
+      .column-title {
+        min-height: clamp(36px, 3.6vw, 52px);
+        font-size: clamp(1.65rem, 3.1vw, 3.2rem);
+      }
+
+      .number-grid {
+        min-height: 0;
+        grid-template-rows: repeat(5, minmax(0, 1fr));
+      }
+
+      .cell {
+        min-height: 0;
+        aspect-ratio: auto;
+        font-size: clamp(1.18rem, 2.15vw, 2.65rem);
+      }
+
+      .history-panel {
+        min-height: 0;
+        padding: clamp(8px, 0.95vw, 13px);
+        overflow: hidden;
+      }
+
+      .history-head {
+        margin-bottom: 0.4rem;
+      }
+
+      .history-title {
+        font-size: clamp(0.98rem, 1.28vw, 1.35rem);
+      }
+
+      .storage-note {
+        font-size: clamp(0.7rem, 0.86vw, 0.86rem);
+      }
+
+      .history-list {
+        gap: clamp(6px, 0.72vw, 10px);
+        padding-bottom: 0.2rem;
+      }
+
+      .history-item {
+        min-width: clamp(58px, 5.5vw, 86px);
+        min-height: clamp(42px, 4.4vw, 58px);
+        font-size: clamp(1rem, 1.35vw, 1.42rem);
+        padding: 0.32rem 0.58rem;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        min-height: 100svh;
+        padding-bottom: calc(12px + var(--safe-bottom));
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .live,
+      .clock {
+        display: none;
+      }
+
+      .title {
+        font-size: clamp(2.25rem, 11vw, 4rem);
+      }
+
+      .hero,
+      .current-panel,
+      .stats-panel,
+      .controls,
+      .board {
+        grid-template-columns: 1fr;
+      }
+
+      .current-panel {
+        min-height: 280px;
+      }
+
+      .status-box {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+        padding: 14px;
+        flex-direction: row;
+      }
+
+      .status-text {
+        font-size: clamp(2.4rem, 16vw, 4rem);
+      }
+
+      .stats-panel {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .stat {
+        min-height: 124px;
+      }
+
+      .controls {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        padding: 6px 0 calc(6px + var(--safe-bottom));
+        background: linear-gradient(180deg, rgba(5, 9, 20, 0), rgba(5, 9, 20, 0.94) 18%, rgba(5, 9, 20, 0.98));
+      }
+
+      .control {
+        min-height: 58px;
+      }
+
+      .board {
+        gap: 10px;
+      }
+
+      .number-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+
+      .cell {
+        aspect-ratio: 1 / 0.78;
+        font-size: clamp(1.25rem, 7vw, 2.2rem);
+      }
+
+      .column-title {
+        min-height: 48px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .app {
+        gap: 10px;
+      }
+
+      .current-display {
+        padding: 18px 12px;
+      }
+
+      .number {
+        font-size: clamp(5rem, 30vw, 8.2rem);
+      }
+
+      .stats-panel {
+        gap: 0;
+      }
+
+      .stat {
+        padding: 13px 8px;
+      }
+
+      .stat-value {
+        font-size: clamp(3.1rem, 17vw, 4.5rem);
+      }
+
+      .history-head {
+        display: block;
+      }
+
+      .storage-note {
+        margin-top: 0.35rem;
+        text-align: left;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 1ms !important;
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="live" aria-hidden="true"><span class="live-dot"></span>LIVE</div>
+      <h1 class="title">BINGO DRAW</h1>
+      <div class="clock" id="clock" aria-hidden="true">--:--</div>
+    </header>
+
+    <main class="hero" aria-live="polite">
+      <section class="current-panel" aria-labelledby="current-label">
+        <div class="current-display">
+          <div class="label" id="current-label">現在の番号</div>
+          <div class="number empty" id="currentNumber">--</div>
+        </div>
+        <div class="status-box">
+          <div class="label">状態</div>
+          <div class="status-text" id="drawStatus">待機</div>
+        </div>
+      </section>
+
+      <section class="stats-panel" aria-label="抽選状況">
+        <div class="stat">
+          <div class="stat-label">残り番号</div>
+          <div class="stat-value" id="remainingCount">75</div>
+          <div class="stat-denom">/ 75</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">抽選済み</div>
+          <div class="stat-value" id="drawnCount">0</div>
+          <div class="stat-denom">/ 75</div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="controls" aria-label="操作">
+      <button class="control primary" id="drawButton" type="button">次の番号を引く</button>
+      <button class="control" id="undoButton" type="button">1つ戻す</button>
+      <button class="control danger" id="resetButton" type="button">リセット</button>
+      <button class="control" id="fullscreenButton" type="button">フルスクリーン</button>
+    </nav>
+
+    <section class="board" id="board" aria-label="B I N G O 別の番号一覧"></section>
+
+    <section class="history-panel" aria-labelledby="history-title">
+      <div class="history-head">
+        <div class="history-title" id="history-title">直近の抽選履歴</div>
+        <div class="storage-note">状態はこのブラウザに自動保存されます</div>
+      </div>
+      <div class="history-list" id="historyList" aria-label="新しい順の抽選履歴"></div>
+    </section>
+
+    <div class="sr-only" id="announcer" aria-live="assertive"></div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var STORAGE_KEY = "bingo-draw-state-v1";
+      var MAX_NUMBER = 75;
+      var ROLL_DURATION_MS = 1100;
+      var ROLL_INTERVAL_MS = 55;
+      var columns = [
+        { label: "B", from: 1, to: 15 },
+        { label: "I", from: 16, to: 30 },
+        { label: "N", from: 31, to: 45 },
+        { label: "G", from: 46, to: 60 },
+        { label: "O", from: 61, to: 75 }
+      ];
+
+      var state = {
+        drawnNumbers: [],
+        currentNumber: null,
+        history: []
+      };
+      var isRolling = false;
+      var rollTimer = null;
+      var settleTimer = null;
+
+      var elements = {
+        clock: document.getElementById("clock"),
+        board: document.getElementById("board"),
+        currentNumber: document.getElementById("currentNumber"),
+        drawStatus: document.getElementById("drawStatus"),
+        remainingCount: document.getElementById("remainingCount"),
+        drawnCount: document.getElementById("drawnCount"),
+        historyList: document.getElementById("historyList"),
+        drawButton: document.getElementById("drawButton"),
+        undoButton: document.getElementById("undoButton"),
+        resetButton: document.getElementById("resetButton"),
+        fullscreenButton: document.getElementById("fullscreenButton"),
+        announcer: document.getElementById("announcer")
+      };
+
+      function getColumnLabel(number) {
+        for (var i = 0; i < columns.length; i += 1) {
+          if (number >= columns[i].from && number <= columns[i].to) {
+            return columns[i].label;
+          }
+        }
+        return "";
+      }
+
+      function formatNumber(number) {
+        return Number.isInteger(number) ? getColumnLabel(number) + "-" + number : "--";
+      }
+
+      function isValidNumber(number) {
+        return Number.isInteger(number) && number >= 1 && number <= MAX_NUMBER;
+      }
+
+      function uniqueValidNumbers(value) {
+        if (!Array.isArray(value)) {
+          return [];
+        }
+        var seen = {};
+        var result = [];
+        value.forEach(function (raw) {
+          var number = Number(raw);
+          if (isValidNumber(number) && !seen[number]) {
+            seen[number] = true;
+            result.push(number);
+          }
+        });
+        return result;
+      }
+
+      function normalizeState(input) {
+        var history = uniqueValidNumbers(input && input.history);
+        var drawnNumbers = uniqueValidNumbers(input && input.drawnNumbers);
+
+        if (history.length > 0) {
+          drawnNumbers = history.slice();
+        } else if (drawnNumbers.length > 0) {
+          history = drawnNumbers.slice();
+        }
+
+        var currentNumber = Number(input && input.currentNumber);
+        if (!isValidNumber(currentNumber) || history.indexOf(currentNumber) === -1) {
+          currentNumber = history.length > 0 ? history[history.length - 1] : null;
+        }
+
+        return {
+          drawnNumbers: drawnNumbers,
+          currentNumber: currentNumber,
+          history: history
+        };
+      }
+
+      function loadState() {
+        try {
+          var saved = localStorage.getItem(STORAGE_KEY);
+          if (!saved) {
+            return;
+          }
+          state = normalizeState(JSON.parse(saved));
+        } catch (error) {
+          console.warn("Saved bingo state was invalid. Starting fresh.", error);
+          state = normalizeState({});
+        }
+      }
+
+      function saveState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (error) {
+          console.warn("Could not save bingo state.", error);
+        }
+      }
+
+      function clearState() {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (error) {
+          console.warn("Could not clear bingo state.", error);
+        }
+      }
+
+      function getRemainingNumbers() {
+        var drawn = {};
+        state.drawnNumbers.forEach(function (number) {
+          drawn[number] = true;
+        });
+        var remaining = [];
+        for (var number = 1; number <= MAX_NUMBER; number += 1) {
+          if (!drawn[number]) {
+            remaining.push(number);
+          }
+        }
+        return remaining;
+      }
+
+      function pickRandomNumber(numbers) {
+        if (numbers.length === 0) {
+          return null;
+        }
+        var index = Math.floor(Math.random() * numbers.length);
+        return numbers[index];
+      }
+
+      function buildBoard() {
+        elements.board.innerHTML = "";
+        columns.forEach(function (column) {
+          var columnEl = document.createElement("section");
+          columnEl.className = "board-column";
+          columnEl.setAttribute("aria-label", column.label + "列");
+
+          var title = document.createElement("div");
+          title.className = "column-title";
+          title.textContent = column.label;
+          columnEl.appendChild(title);
+
+          var grid = document.createElement("div");
+          grid.className = "number-grid";
+
+          for (var number = column.from; number <= column.to; number += 1) {
+            var cell = document.createElement("div");
+            cell.className = "cell";
+            cell.id = "num-" + number;
+            cell.textContent = String(number);
+            grid.appendChild(cell);
+          }
+
+          columnEl.appendChild(grid);
+          elements.board.appendChild(columnEl);
+        });
+      }
+
+      function renderBoard() {
+        var drawn = {};
+        state.drawnNumbers.forEach(function (number) {
+          drawn[number] = true;
+        });
+        for (var number = 1; number <= MAX_NUMBER; number += 1) {
+          var cell = document.getElementById("num-" + number);
+          if (!cell) {
+            continue;
+          }
+          cell.classList.toggle("drawn", Boolean(drawn[number]));
+          cell.classList.toggle("current", state.currentNumber === number);
+        }
+      }
+
+      function renderHistory() {
+        elements.historyList.innerHTML = "";
+        var recent = state.history.slice().reverse().slice(0, 12);
+
+        if (recent.length === 0) {
+          var empty = document.createElement("div");
+          empty.className = "empty-history";
+          empty.textContent = "まだ抽選されていません";
+          elements.historyList.appendChild(empty);
+          return;
+        }
+
+        recent.forEach(function (number, index) {
+          var item = document.createElement("div");
+          item.className = "history-item" + (index === 0 ? " latest" : "");
+          item.textContent = formatNumber(number);
+          elements.historyList.appendChild(item);
+        });
+      }
+
+      function render(options) {
+        var opts = options || {};
+        var remaining = MAX_NUMBER - state.drawnNumbers.length;
+        var currentText = formatNumber(state.currentNumber);
+
+        elements.currentNumber.textContent = currentText;
+        elements.currentNumber.classList.toggle("empty", !state.currentNumber);
+        elements.currentNumber.classList.toggle("rolling", isRolling);
+        elements.drawStatus.textContent = isRolling ? "抽選中" : (state.currentNumber ? "確定" : "待機");
+        elements.drawStatus.classList.toggle("rolling", isRolling);
+        elements.remainingCount.textContent = String(remaining);
+        elements.drawnCount.textContent = String(state.drawnNumbers.length);
+
+        elements.drawButton.disabled = isRolling || remaining === 0;
+        elements.undoButton.disabled = isRolling || state.history.length === 0;
+        elements.resetButton.disabled = isRolling;
+
+        if (opts.settled) {
+          elements.currentNumber.classList.remove("settled");
+          window.requestAnimationFrame(function () {
+            elements.currentNumber.classList.add("settled");
+          });
+        }
+
+        renderBoard();
+        renderHistory();
+      }
+
+      function setRollingPreview(number) {
+        elements.currentNumber.textContent = formatNumber(number);
+        elements.currentNumber.classList.remove("empty");
+        elements.currentNumber.classList.add("rolling");
+      }
+
+      function finalizeDraw(number) {
+        isRolling = false;
+        window.clearInterval(rollTimer);
+        rollTimer = null;
+
+        state.drawnNumbers.push(number);
+        state.currentNumber = number;
+        state.history.push(number);
+        saveState();
+        render({ settled: true });
+        elements.announcer.textContent = "確定番号 " + formatNumber(number);
+
+        // 効果音を追加する場合は、この確定タイミングで再生処理を呼び出す。
+        window.clearTimeout(settleTimer);
+        settleTimer = window.setTimeout(function () {
+          elements.currentNumber.classList.remove("settled");
+        }, 760);
+      }
+
+      function drawNext() {
+        if (isRolling) {
+          return;
+        }
+
+        var remaining = getRemainingNumbers();
+        if (remaining.length === 0) {
+          render();
+          return;
+        }
+
+        var finalNumber = pickRandomNumber(remaining);
+        isRolling = true;
+        render();
+
+        rollTimer = window.setInterval(function () {
+          setRollingPreview(pickRandomNumber(remaining));
+        }, ROLL_INTERVAL_MS);
+
+        window.setTimeout(function () {
+          finalizeDraw(finalNumber);
+        }, ROLL_DURATION_MS);
+      }
+
+      function undoLast() {
+        if (isRolling || state.history.length === 0) {
+          return;
+        }
+
+        state.history.pop();
+        state.drawnNumbers = state.history.slice();
+        state.currentNumber = state.history.length > 0 ? state.history[state.history.length - 1] : null;
+        saveState();
+        render();
+      }
+
+      function resetAll() {
+        if (isRolling) {
+          return;
+        }
+
+        var ok = window.confirm("本当にリセットしますか？抽選履歴は削除されます。");
+        if (!ok) {
+          return;
+        }
+
+        state = normalizeState({});
+        clearState();
+        render();
+        elements.announcer.textContent = "抽選状態をリセットしました";
+      }
+
+      function toggleFullscreen() {
+        var root = document.documentElement;
+        try {
+          if (document.fullscreenElement) {
+            if (document.exitFullscreen) {
+              document.exitFullscreen();
+            }
+            return;
+          }
+          if (root.requestFullscreen) {
+            root.requestFullscreen();
+          } else if (root.webkitRequestFullscreen) {
+            root.webkitRequestFullscreen();
+          }
+        } catch (error) {
+          console.warn("Fullscreen is not available.", error);
+        }
+      }
+
+      function updateClock() {
+        var now = new Date();
+        var text = now.toLocaleString("ja-JP", {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+        elements.clock.textContent = text;
+      }
+
+      function bindEvents() {
+        elements.drawButton.addEventListener("click", drawNext);
+        elements.undoButton.addEventListener("click", undoLast);
+        elements.resetButton.addEventListener("click", resetAll);
+        elements.fullscreenButton.addEventListener("click", toggleFullscreen);
+      }
+
+      loadState();
+      buildBoard();
+      bindEvents();
+      render();
+      updateClock();
+      window.setInterval(updateClock, 30000);
+    }());
+  </script>
+</body>
+</html>
