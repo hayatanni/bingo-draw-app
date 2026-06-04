@@ -299,7 +299,7 @@
 
     .controls {
       display: grid;
-      grid-template-columns: 1.15fr 1fr 1fr 1.05fr;
+      grid-template-columns: 1.18fr 0.88fr 0.88fr 0.88fr 1fr;
       gap: clamp(10px, 1.2vw, 16px);
     }
 
@@ -346,6 +346,12 @@
     .danger {
       background: linear-gradient(180deg, #5c1717, #340b0b);
       border-color: rgba(255, 77, 103, 0.86);
+    }
+
+    .sound-off {
+      color: rgba(246, 251, 255, 0.78);
+      border-color: rgba(228, 226, 210, 0.42);
+      background: linear-gradient(180deg, #24282b, #111517);
     }
 
     .board {
@@ -609,8 +615,8 @@
 
       .control {
         min-height: clamp(48px, 4.9vw, 66px);
-        padding: 0.55rem 0.8rem;
-        font-size: clamp(0.98rem, 1.45vw, 1.55rem);
+        padding: 0.5rem 0.65rem;
+        font-size: clamp(0.9rem, 1.32vw, 1.45rem);
       }
 
       .board {
@@ -834,6 +840,7 @@
     <nav class="controls" aria-label="操作">
       <button class="control primary" id="drawButton" type="button">次の番号を引く</button>
       <button class="control" id="undoButton" type="button">1つ戻す</button>
+      <button class="control" id="soundButton" type="button" aria-pressed="true">🔊 音あり</button>
       <button class="control danger" id="resetButton" type="button">リセット</button>
       <button class="control" id="fullscreenButton" type="button">フルスクリーン</button>
     </nav>
@@ -843,7 +850,7 @@
     <section class="history-panel" aria-labelledby="history-title">
       <div class="history-head">
         <div class="history-title" id="history-title">直近の抽選履歴</div>
-        <div class="storage-note">状態はこのブラウザに自動保存されます</div>
+        <div class="storage-note">状態はこのブラウザに自動保存されます<span id="audioStatus"></span></div>
       </div>
       <div class="history-list" id="historyList" aria-label="新しい順の抽選履歴"></div>
     </section>
@@ -870,11 +877,15 @@
       var state = {
         drawnNumbers: [],
         currentNumber: null,
-        history: []
+        history: [],
+        soundEnabled: true
       };
       var isRolling = false;
       var rollTimer = null;
       var settleTimer = null;
+      var audioContext = null;
+      var drumrollTimer = null;
+      var audioStatusText = "";
 
       var elements = {
         clock: document.getElementById("clock"),
@@ -886,8 +897,10 @@
         historyList: document.getElementById("historyList"),
         drawButton: document.getElementById("drawButton"),
         undoButton: document.getElementById("undoButton"),
+        soundButton: document.getElementById("soundButton"),
         resetButton: document.getElementById("resetButton"),
         fullscreenButton: document.getElementById("fullscreenButton"),
+        audioStatus: document.getElementById("audioStatus"),
         announcer: document.getElementById("announcer")
       };
 
@@ -942,7 +955,8 @@
         return {
           drawnNumbers: drawnNumbers,
           currentNumber: currentNumber,
-          history: history
+          history: history,
+          soundEnabled: input && typeof input.soundEnabled === "boolean" ? input.soundEnabled : true
         };
       }
 
@@ -1076,6 +1090,10 @@
         elements.drawButton.disabled = isRolling || remaining === 0;
         elements.undoButton.disabled = isRolling || state.history.length === 0;
         elements.resetButton.disabled = isRolling;
+        elements.soundButton.textContent = state.soundEnabled ? "🔊 音あり" : "🔇 音なし";
+        elements.soundButton.setAttribute("aria-pressed", state.soundEnabled ? "true" : "false");
+        elements.soundButton.classList.toggle("sound-off", !state.soundEnabled);
+        elements.audioStatus.textContent = audioStatusText ? " / " + audioStatusText : "";
 
         if (opts.settled) {
           elements.currentNumber.classList.remove("settled");
@@ -1094,10 +1112,127 @@
         elements.currentNumber.classList.add("rolling");
       }
 
+      function ensureAudioContext() {
+        try {
+          var AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextConstructor) {
+            audioStatusText = "音声非対応の可能性あり";
+            render();
+            return null;
+          }
+          if (!audioContext) {
+            audioContext = new AudioContextConstructor();
+          }
+          return audioContext;
+        } catch (error) {
+          console.warn("Could not initialize audio.", error);
+          audioStatusText = "音声非対応の可能性あり";
+          render();
+          return null;
+        }
+      }
+
+      function playSnareBurst(context) {
+        try {
+          var duration = 0.045;
+          var sampleRate = context.sampleRate || 44100;
+          var frameCount = Math.max(1, Math.floor(sampleRate * duration));
+          var buffer = context.createBuffer(1, frameCount, sampleRate);
+          var data = buffer.getChannelData(0);
+
+          for (var i = 0; i < frameCount; i += 1) {
+            data[i] = (Math.random() * 2 - 1) * (1 - i / frameCount);
+          }
+
+          var source = context.createBufferSource();
+          var filter = context.createBiquadFilter();
+          var gain = context.createGain();
+          var now = context.currentTime;
+
+          filter.type = "highpass";
+          filter.frequency.setValueAtTime(950, now);
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.12, now + 0.006);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+          source.buffer = buffer;
+          source.connect(filter);
+          filter.connect(gain);
+          gain.connect(context.destination);
+          source.start(now);
+          source.stop(now + duration + 0.01);
+        } catch (error) {
+          console.warn("Could not play drumroll burst.", error);
+          audioStatusText = "音声非対応の可能性あり";
+          stopDrumroll();
+          render();
+        }
+      }
+
+      function startDrumroll() {
+        if (!state.soundEnabled || drumrollTimer !== null) {
+          return;
+        }
+
+        try {
+          var context = ensureAudioContext();
+          if (!context) {
+            return;
+          }
+
+          var start = function () {
+            if (drumrollTimer !== null || !isRolling || !state.soundEnabled) {
+              return;
+            }
+            audioStatusText = "";
+            playSnareBurst(context);
+            drumrollTimer = window.setInterval(function () {
+              if (!isRolling || !state.soundEnabled) {
+                stopDrumroll();
+                return;
+              }
+              playSnareBurst(context);
+            }, 70);
+            render();
+          };
+
+          if (context.state === "suspended" && context.resume) {
+            context.resume().then(start).catch(function (error) {
+              console.warn("Could not resume audio context.", error);
+              audioStatusText = "音声非対応の可能性あり";
+              render();
+            });
+          } else {
+            start();
+          }
+        } catch (error) {
+          console.warn("Could not start drumroll.", error);
+          audioStatusText = "音声非対応の可能性あり";
+          render();
+        }
+      }
+
+      function stopDrumroll() {
+        if (drumrollTimer !== null) {
+          window.clearInterval(drumrollTimer);
+          drumrollTimer = null;
+        }
+      }
+
+      function toggleSound() {
+        state.soundEnabled = !state.soundEnabled;
+        if (!state.soundEnabled) {
+          stopDrumroll();
+        }
+        saveState();
+        render();
+      }
+
       function finalizeDraw(number) {
         isRolling = false;
         window.clearInterval(rollTimer);
         rollTimer = null;
+        stopDrumroll();
 
         state.drawnNumbers.push(number);
         state.currentNumber = number;
@@ -1106,7 +1241,6 @@
         render({ settled: true });
         elements.announcer.textContent = "確定番号 " + formatNumber(number);
 
-        // 効果音を追加する場合は、この確定タイミングで再生処理を呼び出す。
         window.clearTimeout(settleTimer);
         settleTimer = window.setTimeout(function () {
           elements.currentNumber.classList.remove("settled");
@@ -1127,13 +1261,23 @@
         var finalNumber = pickRandomNumber(remaining);
         isRolling = true;
         render();
+        startDrumroll();
 
         rollTimer = window.setInterval(function () {
           setRollingPreview(pickRandomNumber(remaining));
         }, ROLL_INTERVAL_MS);
 
         window.setTimeout(function () {
-          finalizeDraw(finalNumber);
+          try {
+            finalizeDraw(finalNumber);
+          } catch (error) {
+            console.warn("Could not finalize draw.", error);
+            isRolling = false;
+            window.clearInterval(rollTimer);
+            rollTimer = null;
+            stopDrumroll();
+            render();
+          }
         }, ROLL_DURATION_MS);
       }
 
@@ -1142,6 +1286,7 @@
           return;
         }
 
+        stopDrumroll();
         state.history.pop();
         state.drawnNumbers = state.history.slice();
         state.currentNumber = state.history.length > 0 ? state.history[state.history.length - 1] : null;
@@ -1151,6 +1296,7 @@
 
       function resetAll() {
         if (isRolling) {
+          stopDrumroll();
           return;
         }
 
@@ -1159,8 +1305,8 @@
           return;
         }
 
-        state = normalizeState({});
-        clearState();
+        state = normalizeState({ soundEnabled: state.soundEnabled });
+        saveState();
         render();
         elements.announcer.textContent = "抽選状態をリセットしました";
       }
@@ -1198,6 +1344,7 @@
       function bindEvents() {
         elements.drawButton.addEventListener("click", drawNext);
         elements.undoButton.addEventListener("click", undoLast);
+        elements.soundButton.addEventListener("click", toggleSound);
         elements.resetButton.addEventListener("click", resetAll);
         elements.fullscreenButton.addEventListener("click", toggleFullscreen);
       }
